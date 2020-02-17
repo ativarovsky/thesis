@@ -1,0 +1,66 @@
+---
+title: "Thesis Preliminary Analysis"
+author: "Alice Tivarovsky"
+date: "1/13/2020"
+output: html_document
+---
+
+## Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(foreign)
+
+```
+
+## Data Import and Tidying
+
+Reading in cycles 2015-2016 and 2013-2014, datasets: demographics (DEMO), diet behavior and nutrition (DBQ), Phthalates and Plasticizers Metabolites - Urine (PHTHTE), Personal Care and Consumer Product Chemicals and Metabolites (EPHPP) in the 2015-2016 and 2013-2014 cycles, and Environmental Phenols & Parabens (EPH_G) 2011-2012 cycles. 
+
+```{r}
+# reading in 2015 - 2016 data
+demo_15_16 = read.xport("../data/2015_2016_DEMO_I.XPT.txt")
+dbq_15_16 = read.xport("../data/2015_2016_DBQ_I.XPT.txt")
+phthalate_15_16 = read.xport("../data/2015_2016_PHTHTE_I.XPT.txt")
+phenol_15_16 = read.xport("../data/2015_2016_EPHPP_I.XPT.txt")
+
+# reading in 2013 - 2014 demographics data
+demo_13_14 = read.xport("../data/2013_2014_DEMO_H.XPT.txt")
+dbq_13_14 = read.xport("../data/2013_2014_DBQ_H.XPT.txt")
+phthalate_13_14 = read.xport("../data/2013_2014_PHTHTE_H.XPT.txt")
+phenol_13_14 = read.xport("../data/2013_2014_EPHPP_H.XPT.txt")
+
+
+```
+ 
+
+Merging everything into one dataframe: 
+
+```{r}
+data_15_16 = 
+  full_join(demo_15_16, dbq_15_16, by = "SEQN") %>%
+  full_join(phthalate_15_16, by = "SEQN") %>% 
+  full_join(phenol_15_16, by = "SEQN") %>% 
+  mutate(cycle = "2015_2016")
+
+data_13_14 = 
+  full_join(demo_13_14, dbq_13_14, by = "SEQN") %>%
+  full_join(phthalate_13_14, by = "SEQN") %>% 
+  full_join(phenol_13_14, by = "SEQN") %>% 
+  mutate(cycle = "2013_2014")
+  
+all_data = 
+  bind_rows(data_13_14, data_15_16) 
+```
+
+
+Select (and rename) variables of interest: 
+
+```{r}
+all_data %>% 
+  select(SEQN, cycle, RIAGENDR, RIDRETH1, RIDRETH3, DMDEDUC2, DMDEDUC3, DMDMARTL, INDHHIN2, INDFMIN2, URXBP3, URXBPH, URXBPF, URXBPS, URXTRS, URXUCR.x, URXCNP, URXCOP, URXECP, URXHIBP, URXMBP, URXMC1, URXMCOH, URXMEP, URXMHBP, URXMHH, URXMHNC, URXMHP, URXMIB, URXMNP, URXMOH, URXMZP, DBQ700, DBD895, DBD900, DBD905, DBD910) 
+         
+
+```
+
