@@ -64,12 +64,33 @@ all_data =
          
 ```
 
-Restrict to women 18 - 44: 
+Restrict to women 18 - 44 with biomarker data.  
 
 ```{r}
 all_data = 
   all_data %>% 
   filter(RIAGENDR == 2, RIDAGEYR %in% (18:44)) %>% 
   drop_na(URXBP3)
+
+min(all_data$RIDAGEYR)
 ```
+
+Next, we need to recode the education variables because education for 18-20 year olds is coded differently from those > 20 years old. First we get the range to understand the scope of recode. 
+
+```{r} 
+range(all_data$DMDEDUC2, na.rm = TRUE)
+
+all_data_1 = 
+  all_data %>% 
+  filter(RIDAGEYR %in% (18:1)) %>% 
+     mutate(DMDEDUC2 = 
+            ifelse(DMDEDUC3 < 9, "1", 
+            ifelse(DMDEDUC3 %in% (9:11), "2",
+            ifelse(DMDEDUC3 %in% (12:14), "3",
+            ifelse("4")))))
+
+view(all_data_1)
+```
+
+
 
