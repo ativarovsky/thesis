@@ -11,6 +11,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(foreign)
+library(ggridges)
+library(viridis)
+library(tableone)
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 ```
 
@@ -96,8 +107,81 @@ all_data_2 =
   all_data %>% 
   filter(!RIDAGEYR %in% (18:19))
 
-
 all_data = bind_rows(all_data_1, all_data_2)
+
+```
+
+
+Recoding marital status for 18 and 19-year olds, who were not asked the question. NA's are replaced with 5 (Never Married). 
+```{r}
+all_data = 
+  all_data %>% 
+  mutate(DMDMARTL = replace_na(DMDMARTL, 5))
+
+```
+
+
+Finally, we clean up the variable names and types and remove NA vectors (URXHIBP, URXMCOH, URXMHBP. 
+
+```{r}
+# Fixing column labels
+all_data = 
+  all_data %>% 
+  janitor::clean_names() %>% 
+  mutate(riagendr = as.factor(riagendr), 
+         ridageyr = as.integer(ridageyr), 
+         ridreth1 = as.factor(ridreth1), 
+         ridreth3 = as.factor(ridreth3), 
+         dmdeduc2 = as.factor(dmdeduc2),
+         ) %>% 
+  select(-riagendr, -ridreth1, -dmdeduc3, -urxhibp, -urxmcoh, -urxmhbp)
+```
+
+
+## Exploratory data analysis
+
+Here we do some preliminary analysis of our sample. 
+
+Histograms: 
+```{r histograms}
+
+# Age histogram
+all_data %>% 
+  ggplot(aes(x = ridageyr)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+# Education histogram
+all_data %>% 
+  ggplot(aes(x = dmdeduc2)) +
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkgreen", fill = "lightgreen", stat = "count")
+
+# Household Income Histogram
+all_data %>% 
+  ggplot(aes(x = indhhin2)) +
+  geom_histogram(position = "dodge", binwidth = 1, color = "red", fill = "pink",
+                 stat = "count")
+
+```
+
+Table 1: 
+
+```{r tableone}
+tab_one_data = 
+all_data %>% 
+  select("ridageyr", "ridreth3", "dmdeduc2", "dmdmartl", "indhhin2", "indfmin2") %>% 
+  rename("Age" = "ridageyr", "Ethnicity" = "ridreth3", "Education" = "dmdeduc2", "MaritalStatus" = "dmdmartl", "FamilyIncome" = "indfmin2") %>% 
+  mutate(
+    Ethnicity = recode(Ethnicity, "1" = "Mexican American", "2" = "Other Hispanic", "3" = "Non-Hispanic White", "4" = "Non-Hispanic Black", "6" = "Non-Hispanic Asian", "7" = "Other Race - Including Multi-Racial", default = NULL, .missing = NULL), 
+    Education = recode(Education, "1" = "Less than 9th grade", "2" = "9-11th grade (Includes 12th grade with no diploma)", "3" = "High school graduate/GED or equivalent", "4" = "Some college or AA degree", "5" = "College graduate or above", "7" = "Refused", "9" = "Don't Know", default = NULL, .missing = NULL), 
+    MaritalStatus = recode(MaritalStatus, "1" = "Married", "2" = "Widowed", "3" = "Divorced", "4" = "Separated", "5" = "Never married", "6" = "Living with partner", default = NULL, .missing = NULL),
+    FamilyIncome = recode(FamilyIncome, "1" = "$ 0 to $ 4,999", "2" = "$ 5,000 to $ 9,999", "3" = "$10,000 to $14,999", "4" = "$15,000 to $19,999", "5" = "$20,000 to $24,999", "6" = "$25,000 to $34,999", "7" = "$35,000 to $44,999", "8" = "$45,000 to $54,999", "9" = "$55,000 to $64,999", "10" = "$65,000 to $74,999", "12" = "$20,000 and Over", "13" = "Under $20,000", "14" = "$75,000 to $99,999", "15" = "$100,000 and Over", default = NULL, .missing = NULL))
+
+my_vars = c("Age", "Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
+
+cat_vars = c("Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
+
+tab_one = CreateTableOne(vars = my_vars, data = tab_one_data, factorVars = cat_vars)
+
 ```
 
 
