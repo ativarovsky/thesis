@@ -42,7 +42,6 @@ dbq_13_14 = read.xport("../data/2013_2014_DBQ_H.XPT.txt")
 phthalate_13_14 = read.xport("../data/2013_2014_PHTHTE_H.XPT.txt")
 phenol_13_14 = read.xport("../data/2013_2014_EPHPP_H.XPT.txt")
 
-
 ```
  
 
@@ -112,7 +111,7 @@ all_data = bind_rows(all_data_1, all_data_2)
 ```
 
 
-Recoding marital status for 18 and 19-year olds, who were not asked the question. NA's are replaced with 5 (Never Married). 
+Now, we recode marital status for 18 and 19-year olds, who were not asked the question. NA's are replaced with 5 (Never Married). 
 ```{r}
 all_data = 
   all_data %>% 
@@ -120,30 +119,38 @@ all_data =
 
 ```
 
+We note that we have 2 income variables, annual household income (INDHHIN2) and annual family income (INDFMIN2). They have the same coding structure, and are likely highly correlated. We will remove one of them for further analysis, but first we confirm the correlation. Running the correlation below, r = 0.9720947, confirming correlation. We proceed with only family income. 
 
-Finally, we clean up the variable names and types and remove NA vectors (URXHIBP, URXMCOH, URXMHBP. 
+```{r income correlation}
+
+all_data %>% 
+  select(INDHHIN2, INDFMIN2) %>% 
+  cor(use = "complete.obs", method = "pearson")
+```
+
+
+Finally, we clean up the variable names and types and remove NA vectors (URXHIBP, URXMCOH, URXMHBP). We omit household income, per the correlation above, and the first ethnicity variable (ridreth1), which is less information than ridreth3. 
 
 ```{r}
 # Fixing column labels
 all_data = 
   all_data %>% 
   janitor::clean_names() %>% 
-  mutate(riagendr = as.factor(riagendr), 
-         ridageyr = as.integer(ridageyr), 
-         ridreth1 = as.factor(ridreth1), 
+  mutate(ridageyr = as.integer(ridageyr), 
+         ridreth1 = as.factor(indfmin2), 
          ridreth3 = as.factor(ridreth3), 
          dmdeduc2 = as.factor(dmdeduc2),
          ) %>% 
-  select(-riagendr, -ridreth1, -dmdeduc3, -urxhibp, -urxmcoh, -urxmhbp)
+  select(-riagendr, -ridreth1, -indhhin2, -dmdeduc3, -urxhibp, -urxmcoh, -urxmhbp)
 ```
 
 
 ## Exploratory data analysis
 
-Here we do some preliminary analysis of our sample. 
+### Distributions
 
-Histograms: 
-```{r histograms}
+Independent variable histograms: 
+```{r independent variable histograms}
 
 # Age histogram
 all_data %>% 
@@ -163,7 +170,52 @@ all_data %>%
 
 ```
 
-Table 1: 
+Outcome variable histograms (to understand if log adjustment is necessary). First we look at phenols. The three phenol distributions indicate right-skewed data, suggesting the need to log-transform. 
+
+```{r phenol distributions}
+
+# urxbp3 Urinary Benzophenone-3 (ng/ml)
+all_data %>% 
+  ggplot(aes(x = urxbp3)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+# urxbph Urinary Bisphenol A (ng/mL)
+all_data %>% 
+  ggplot(aes(x = urxbph)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+# urxbpf Urinary Bisphenol F (ng/mL)
+all_data %>% 
+  ggplot(aes(x = urxbpf)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+
+```
+
+Next we examine the phthalate distributions. Similarly, the phthalates are right-skewed. 
+
+```{r pthalate distributions}
+
+# urxmbp	Mono-n-butyl phthalate (ng/mL)
+all_data %>% 
+  ggplot(aes(x = urxmbp)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+# urxmep Mono-ethyl phthalate (ng/mL)
+all_data %>% 
+  ggplot(aes(x = urxmep)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+# urxmib Mono-isobutyl phthalate (ng/mL)
+all_data %>% 
+  ggplot(aes(x = urxmib)) + 
+  geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
+
+```
+
+
+
+### Table 1  
 
 ```{r tableone}
 tab_one_data = 
@@ -181,6 +233,7 @@ my_vars = c("Age", "Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 cat_vars = c("Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 
 tab_one = CreateTableOne(vars = my_vars, data = tab_one_data, factorVars = cat_vars)
+tab_one
 
 ```
 
