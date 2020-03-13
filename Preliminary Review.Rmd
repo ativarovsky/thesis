@@ -14,6 +14,7 @@ library(foreign)
 library(ggridges)
 library(viridis)
 library(tableone)
+library(survey)
 
 options(
   ggplot2.continuous.colour = "viridis",
@@ -70,31 +71,33 @@ Select variables of interest:
 ```{r}
 all_data = 
   all_data %>% 
-  select(SEQN, cycle, RIAGENDR, RIDAGEYR, RIDRETH1, RIDRETH3, DMDEDUC2, DMDEDUC3, DMDMARTL, INDHHIN2, INDFMIN2, URXBP3, URXBPH, URXBPF, URXBPS, URXTRS, URXUCR.x, URXCNP, URXCOP, URXECP, URXHIBP, URXMBP, URXMC1, URXMCOH, URXMEP, URXMHBP, URXMHH, URXMHNC, URXMHP, URXMIB, URXMNP, URXMOH, URXMZP, DBQ700, DBD895, DBD900, DBD905, DBD910) 
-         
+  select(SEQN, cycle, RIAGENDR, RIDAGEYR, RIDRETH1, RIDRETH3, DMDEDUC2, DMDEDUC3, DMDMARTL, INDHHIN2, INDFMIN2, WTMEC2YR, SDMVPSU, SDMVSTRA, URXBP3, URXBPH, URXBPF, URXBPS, URXTRS, URXUCR.x, URXCNP, URXCOP, URXECP, URXHIBP, URXMBP, URXMC1, URXMCOH, URXMEP, URXMHBP, URXMHH, URXMHNC, URXMHP, URXMIB, URXMNP, URXMOH, URXMZP, DBQ700, DBD895, DBD900, DBD905, DBD910) 
+
 ```
+We start with 20,146 observations before any exclusion criteria are applied. 
 
 Restrict to women 18 - 44 with biomarker data.  
-
 ```{r}
-all_data = 
+final_data = 
   all_data %>% 
   filter(RIAGENDR == 2, RIDAGEYR %in% (18:44)) %>% 
-  mutate(DMDEDUC2 = as.numeric(DMDEDUC2), 
-         DMDEDUC3 = as.numeric(DMDEDUC3)) %>% 
   drop_na(URXBP3)
 
-min(all_data$RIDAGEYR)
+#check
+min(final_data$RIDAGEYR)
+
 ```
 
-Next, we need to recode the education variables because education for 18-20 year olds is coded differently from those > 20 years old. First we get the range to understand the scope of recode. 
+Next, we recode the education variables because education for 18-20 year olds is coded differently from those > 20 years old. First we get the range to understand the scope of recode. 
 
 ```{r} 
 range(all_data$DMDEDUC2, na.rm = TRUE)
 
 all_data_1 = 
-  all_data %>% 
+  final_data %>% 
   filter(RIDAGEYR %in% (18:19)) %>% 
+    mutate(DMDEDUC2 = as.numeric(DMDEDUC2), 
+          DMDEDUC3 = as.numeric(DMDEDUC3)) %>% 
      mutate(DMDEDUC2 = 
             ifelse(DMDEDUC3 < 9, "1", 
             ifelse(DMDEDUC3 %in% (9:11), "2",
@@ -103,18 +106,18 @@ all_data_1 =
   
 
 all_data_2 = 
-  all_data %>% 
+  final_data %>% 
   filter(!RIDAGEYR %in% (18:19))
 
-all_data = bind_rows(all_data_1, all_data_2)
+final_data = bind_rows(all_data_1, all_data_2)
 
 ```
 
 
 Now, we recode marital status for 18 and 19-year olds, who were not asked the question. NA's are replaced with 5 (Never Married). 
 ```{r}
-all_data = 
-  all_data %>% 
+final_data = 
+  final_data %>% 
   mutate(DMDMARTL = replace_na(DMDMARTL, 5))
 
 ```
@@ -123,7 +126,7 @@ We note that we have 2 income variables, annual household income (INDHHIN2) and 
 
 ```{r income correlation}
 
-all_data %>% 
+final_data %>% 
   select(INDHHIN2, INDFMIN2) %>% 
   cor(use = "complete.obs", method = "pearson")
 ```
@@ -133,8 +136,8 @@ Finally, we clean up the variable names and types and remove NA vectors (URXHIBP
 
 ```{r}
 # Fixing column labels
-all_data = 
-  all_data %>% 
+final_data = 
+  final_data %>% 
   janitor::clean_names() %>% 
   mutate(ridageyr = as.integer(ridageyr), 
          ridreth1 = as.factor(indfmin2), 
@@ -142,6 +145,7 @@ all_data =
          dmdeduc2 = as.factor(dmdeduc2),
          ) %>% 
   select(-riagendr, -ridreth1, -indhhin2, -dmdeduc3, -urxhibp, -urxmcoh, -urxmhbp)
+
 ```
 
 
@@ -153,17 +157,17 @@ Independent variable histograms:
 ```{r independent variable histograms}
 
 # Age histogram
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = ridageyr)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
 # Education histogram
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = dmdeduc2)) +
   geom_histogram(position = "dodge", binwidth = 1, color = "darkgreen", fill = "lightgreen", stat = "count")
 
 # Household Income Histogram
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = indfmin2)) +
   geom_histogram(position = "dodge", binwidth = 1, color = "red", fill = "pink",
                  stat = "count")
@@ -175,17 +179,17 @@ Outcome variable histograms (to understand if log adjustment is necessary). Firs
 ```{r phenol distributions}
 
 # urxbp3 Urinary Benzophenone-3 (ng/ml)
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = urxbp3)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
 # urxbph Urinary Bisphenol A (ng/mL)
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = urxbph)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
 # urxbpf Urinary Bisphenol F (ng/mL)
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = urxbpf)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
@@ -197,17 +201,17 @@ Next we examine the phthalate distributions. Similarly, the phthalates are right
 ```{r pthalate distributions}
 
 # urxmbp	Mono-n-butyl phthalate (ng/mL)
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = urxmbp)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
 # urxmep Mono-ethyl phthalate (ng/mL)
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = urxmep)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
 # urxmib Mono-isobutyl phthalate (ng/mL)
-all_data %>% 
+final_data %>% 
   ggplot(aes(x = urxmib)) + 
   geom_histogram(position = "dodge", binwidth = 1, color = "darkblue", fill = "lightblue") 
 
@@ -219,7 +223,7 @@ all_data %>%
 
 ```{r tableone}
 tab_one_data = 
-all_data %>% 
+final_data %>% 
   select("ridageyr", "ridreth3", "dmdeduc2", "dmdmartl", "indfmin2") %>% 
   rename("Age" = "ridageyr", "Ethnicity" = "ridreth3", "Education" = "dmdeduc2", "MaritalStatus" = "dmdmartl", "FamilyIncome" = "indfmin2") %>% 
   mutate(
@@ -232,10 +236,47 @@ my_vars = c("Age", "Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 
 cat_vars = c("Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 
-tab_one = CreateTableOne(vars = my_vars, data = tab_one_data, factorVars = cat_vars)
+tab_one = CreateTableOne(vars = my_vars, data = tab_one_data, factorVars = cat_vars) 
 tab_one
 
 ```
 
+## Modeling
 
+First we apply the survey weight to the separate datasets. We create 
+
+```{r survey weights}
+
+# tidy all_data for survey analysis
+all_data = 
+  all_data %>% 
+  janitor::clean_names()
+         
+# create variable for 4-year weighting
+all_data$mec4yr = all_data$wtmec2yr/2
+
+# create survey design adjustment variable
+nhanesDesign = svydesign(id = ~sdmvpsu,
+                          strata  = ~sdmvstra,
+                          weights = ~mec4yr,
+                          nest    = TRUE,
+                          data    = all_data)
+
+# subset for age and gender
+ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45)
+
+```
+
+
+```{r tidying for analysis}
+
+svymean(~ridageyr, ageDesign, na.rm = TRUE)
+
+output = svyglm(urxbp3 ~ ridageyr,
+          family = gaussian(),
+          data   = all_data,
+          design = ageDesign)
+
+summary(output)
+```
 
