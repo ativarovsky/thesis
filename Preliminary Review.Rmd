@@ -15,6 +15,7 @@ library(ggridges)
 library(viridis)
 library(tableone)
 library(survey)
+library(stats)
 
 options(
   ggplot2.continuous.colour = "viridis",
@@ -140,7 +141,7 @@ final_data =
   final_data %>% 
   janitor::clean_names() %>% 
   mutate(ridageyr = as.integer(ridageyr), 
-         ridreth1 = as.factor(indfmin2), 
+         indfmin2 = as.factor(indfmin2), 
          ridreth3 = as.factor(ridreth3), 
          dmdeduc2 = as.factor(dmdeduc2),
          ) %>% 
@@ -243,24 +244,58 @@ tab_one
 
 ## Modeling
 
-First we apply the survey weight to the separate datasets. We create 
+Due to the complex sampling structure of NHANES, we need to account for survey weights. We use the survey package and subset our desired population (women aged 18 - 44). First we perform the same tidying steps we used for the exploratory analysis. We note that we cannot use the same dataset used in the exploratory analysis because application of the survey weights requires that we retain all observations and restrict the data using subsetting rather than filtering. 
 
-```{r survey weights}
-
-# tidy all_data for survey analysis
-all_data = 
+```{r tidying for survey weights}
+# assign variable types and remove unneeded variables 
+model_data = 
   all_data %>% 
-  janitor::clean_names()
+  janitor::clean_names() 
+
+# recoding education
+model_data_1 = 
+  model_data %>% 
+  filter(ridageyr %in% (18:19)) %>% 
+     mutate(dmdeduc2 = 
+            ifelse(dmdeduc3 < 9, "1", 
+            ifelse(dmdeduc3 %in% (9:11), "2",
+            ifelse(dmdeduc3 %in% (12:14), "3", "4")))) %>% 
+  mutate(dmdeduc2 = as.numeric(dmdeduc2))
+  
+model_data_2 = 
+  model_data %>% 
+  filter(!ridageyr %in% (18:19))
+
+model_data = bind_rows(model_data_1, model_data_2)
+
+# recoding marital status for <20 year old participants
+model_data = 
+  model_data %>% 
+    mutate(dmdmartl = replace_na(dmdmartl, 5))
+
+# re-classifying variable types 
+model_data = 
+  model_data %>% 
+  mutate(ridreth3 = as.factor(ridreth3), 
+         dmdeduc2 = as.factor(dmdeduc2), 
+         dmdmartl = as.factor(dmdmartl), 
+         indfmin2 = as.factor(indfmin2), 
+         dmdeduc2 = as.factor(dmdeduc2)) %>% 
+  select(-ridreth1)
          
+
+```
+
+```{r survey design variables}
 # create variable for 4-year weighting
-all_data$mec4yr = all_data$wtmec2yr/2
+model_data$mec4yr = model_data$wtmec2yr/2
 
 # create survey design adjustment variable
 nhanesDesign = svydesign(id = ~sdmvpsu,
                           strata  = ~sdmvstra,
                           weights = ~mec4yr,
                           nest    = TRUE,
-                          data    = all_data)
+                          data    = model_data)
 
 # subset for age and gender
 ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45)
@@ -268,13 +303,13 @@ ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45)
 ```
 
 
-```{r tidying for analysis}
+```{r models for phenols}
 
-svymean(~ridageyr, ageDesign, na.rm = TRUE)
+svymean(~ridageyr, ageDesign)
 
-output = svyglm(urxbp3 ~ ridageyr,
+output = svyglm(log(urxbp3) ~ ridageyr + ,
           family = gaussian(),
-          data   = all_data,
+          data   = model_data,
           design = ageDesign)
 
 summary(output)
