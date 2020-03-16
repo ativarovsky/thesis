@@ -298,7 +298,7 @@ nhanesDesign = svydesign(id = ~sdmvpsu,
                           data    = model_data)
 
 # subset for age and gender
-ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45)
+ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45 & !indfmin2 %in% c(77,99))
 
 ```
 
@@ -307,11 +307,26 @@ ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45)
 
 svymean(~ridageyr, ageDesign)
 
-output = svyglm(log(urxbp3) ~ ridageyr + ,
+output = svyglm(log(urxbp3) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2),
           family = gaussian(),
           data   = model_data,
           design = ageDesign)
 
 summary(output)
+
+```
+
+## Trying unweighted 
+
+```{r}
+
+model_raw = 
+  model_data %>% 
+  drop_na(urxbp3) %>% 
+  filter(riagendr == 2 & ridageyr > 17 & ridageyr < 45 & !indfmin2 %in% c(77,99))
+
+model_1 = lm(log(urxbp3) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2), data = model_raw) 
+
+model_1 %>% broom::glance()
 ```
 
