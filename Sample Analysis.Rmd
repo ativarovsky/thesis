@@ -1,0 +1,73 @@
+---
+title: "Sample Analysis"
+author: "Alice Tivarovsky"
+date: "3/17/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(foreign)
+library(ggridges)
+library(viridis)
+library(tableone)
+library(survey)
+library(stats)
+library(weights)
+library(gridExtra)
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+```
+
+## Sample Analysis 
+
+```{r weighting variable}
+
+load("final_data.Rdata")
+
+final_data$mec4yr = final_data$wtmec2yr/2
+final_data
+```
+
+We will plot phenols by income. We will use the sample weighting to create more generalizable estimates. 
+```{r phenols by income}
+
+phen_1 = final_data %>% 
+  filter(!indfmin2 %in% c(12, 13, 77, 99, NA)) %>% 
+  ggplot(aes(x = indfmin2, y = log(urxbp3))) + 
+  geom_boxplot()
+  
+phen_2 = final_data %>% 
+  filter(!indfmin2 %in% c(12, 13, 77, 99, NA)) %>% 
+  ggplot(aes(x = indfmin2, y = log(urxbph))) + 
+  geom_boxplot()
+
+phen_3 = final_data %>% 
+  filter(!indfmin2 %in% c(12, 13, 77, 99, NA)) %>% 
+  ggplot(aes(x = indfmin2, y = log(urxbpf))) + 
+  geom_boxplot()
+
+phen_4 = final_data %>% 
+  filter(!indfmin2 %in% c(12, 13, 77, 99, NA)) %>% 
+  ggplot(aes(x = indfmin2, y = log(urxbps))) + 
+  geom_boxplot()
+
+phen_5 = final_data %>% 
+  filter(!indfmin2 %in% c(12, 13, 77, 99, NA)) %>% 
+  ggplot(aes(x = indfmin2, y = log(urxtrs))) + 
+  geom_boxplot()
+
+grid.arrange(phen_1, phen_2, phen_3, phen_4, phen_5)
+```
+

@@ -17,6 +17,7 @@ library(tableone)
 library(survey)
 library(stats)
 
+
 options(
   ggplot2.continuous.colour = "viridis",
   ggplot2.continuous.fill = "viridis"
@@ -147,6 +148,7 @@ final_data =
          ) %>% 
   select(-riagendr, -ridreth1, -indhhin2, -dmdeduc3, -urxhibp, -urxmcoh, -urxmhbp)
 
+save(final_data, file = "final_data.Rdata")
 ```
 
 
@@ -223,15 +225,29 @@ final_data %>%
 ### Table 1  
 
 ```{r tableone}
+
 tab_one_data = 
 final_data %>% 
   select("ridageyr", "ridreth3", "dmdeduc2", "dmdmartl", "indfmin2") %>% 
   rename("Age" = "ridageyr", "Ethnicity" = "ridreth3", "Education" = "dmdeduc2", "MaritalStatus" = "dmdmartl", "FamilyIncome" = "indfmin2") %>% 
   mutate(
     Ethnicity = recode(Ethnicity, "1" = "Mexican American", "2" = "Other Hispanic", "3" = "Non-Hispanic White", "4" = "Non-Hispanic Black", "6" = "Non-Hispanic Asian", "7" = "Other Race - Including Multi-Racial", .default = NULL, .missing = NULL), 
-    Education = recode(Education, "1" = "Less than 9th grade", "2" = "9-11th grade (Includes 12th grade with no diploma)", "3" = "High school graduate/GED or equivalent", "4" = "Some college or AA degree", "5" = "College graduate or above", "7" = "Refused", "9" = "Don't Know", .default = NULL, .missing = NULL), 
-    MaritalStatus = recode(MaritalStatus, "1" = "Married", "2" = "Widowed", "3" = "Divorced", "4" = "Separated", "5" = "Never married", "6" = "Living with partner", .default = NULL, .missing = NULL),
-    FamilyIncome = recode(FamilyIncome, "1" = "$ 0 to $ 4,999", "2" = "$ 5,000 to $ 9,999", "3" = "$10,000 to $14,999", "4" = "$15,000 to $19,999", "5" = "$20,000 to $24,999", "6" = "$25,000 to $34,999", "7" = "$35,000 to $44,999", "8" = "$45,000 to $54,999", "9" = "$55,000 to $64,999", "10" = "$65,000 to $74,999", "12" = "$20,000 and Over", "13" = "Under $20,000", "14" = "$75,000 to $99,999", "15" = "$100,000 and Over", .default = NULL, .missing = NULL))
+    Education = recode(Education, "1" = "Less than High School", "2" = "Less than High School", "3" = "High school graduate/GED or equivalent", "4" = "Some college or AA degree", "5" = "College graduate or above", "7" = "Refused", "9" = "Don't Know", .default = NULL, .missing = NULL), 
+    MaritalStatus = recode(MaritalStatus, "1" = "Married", "2" = "Widowed", "3" = "Divorced", "4" = "Separated", "5" = "Never married", "6" = "Living with partner", .default = NULL, .missing = NULL))
+
+#recoding income
+tab_one_data =
+  tab_one_data %>% 
+  mutate(FamilyIncome = case_when(FamilyIncome %in% c("1", "2", "3", "4", "13") ~ "< $20,000", 
+                                  FamilyIncome %in% c("5", "6", "7") ~ "$20,000 - $45,000",
+                                  FamilyIncome %in% c("8", "9", "10") ~ "$45,000 - $75,000",
+                                  FamilyIncome == 14 ~ "$75,000 to $100,000",
+                                  FamilyIncome == 15 ~ "$100,000 and Over")
+  ) %>% 
+  mutate(FamilyIncome = as.factor(FamilyIncome)) %>% 
+  drop_na(FamilyIncome)
+
+
 
 my_vars = c("Age", "Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 
@@ -305,28 +321,52 @@ ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45 &
 
 ```{r models for phenols}
 
-svymean(~ridageyr, ageDesign)
+svymean(~urxbp3, ageDesign)
 
-output = svyglm(log(urxbp3) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2),
+output = svyglm(log(urxtrs) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2) + urxucr_x,
           family = gaussian(),
           data   = model_data,
-          design = ageDesign)
+          design = ageDesign) 
 
 summary(output)
+fit.svyglm(output)
 
 ```
 
-## Trying unweighted 
 
-```{r}
+## Trying unweighted models - Phenols
+
+```{r Benzophenone-3}
 
 model_raw = 
   model_data %>% 
   drop_na(urxbp3) %>% 
   filter(riagendr == 2 & ridageyr > 17 & ridageyr < 45 & !indfmin2 %in% c(77,99))
 
-model_1 = lm(log(urxbp3) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2), data = model_raw) 
+#adjusted model
+model_urxbp3 = lm(log(urxbp3) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2) + urxucr_x, data = model_raw) 
+model_urxbp3 %>% broom::glance()
+model_urxbp3 %>% broom::tidy()
 
-model_1 %>% broom::glance()
+#crude model
+model_urxbp3_crude = lm(log(urxbp3) ~ factor(dmdeduc2) + factor(indfmin2) + urxucr_x, data = model_raw) 
+model_urxbp3_crude %>% broom::glance()
+model_urxbp3_crude %>% broom::tidy()
+
+```
+
+
+## Unweighted Models - Pthalates
+```{r Mono-ethyl phthalate}
+#adjusted model
+model_urxmep = lm(log(urxmep) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2) + urxucr_x, data = model_raw) 
+model_urxmep %>% broom::glance()
+model_urxmep %>% broom::tidy()
+
+#crude model
+model_urxmep_crude = lm(log(urxmep) ~ factor(dmdeduc2) + factor(indfmin2) + urxucr_x, data = model_raw) 
+model_urxmep_crude %>% broom::glance()
+model_urxmep_crude %>% broom::tidy()
+
 ```
 
