@@ -254,7 +254,8 @@ my_vars = c("Age", "Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 cat_vars = c("Ethnicity", "Education", "MaritalStatus", "FamilyIncome")
 
 tab_one = CreateTableOne(vars = my_vars, data = tab_one_data, factorVars = cat_vars) 
-tab_one
+kableone(tab_one)
+
 
 ```
 
@@ -299,37 +300,6 @@ model_data =
          dmdeduc2 = as.factor(dmdeduc2)) %>% 
   select(-ridreth1)
          
-
-```
-
-```{r survey design variables}
-# create variable for 4-year weighting
-model_data$mec4yr = model_data$wtmec2yr/2
-
-# create survey design adjustment variable
-nhanesDesign = svydesign(id = ~sdmvpsu,
-                          strata  = ~sdmvstra,
-                          weights = ~mec4yr,
-                          nest    = TRUE,
-                          data    = model_data)
-
-# subset for age and gender
-ageDesign = subset(nhanesDesign, riagendr == 2 & ridageyr > 17 & ridageyr < 45 & !indfmin2 %in% c(77,99))
-
-```
-
-
-```{r models for phenols}
-
-svymean(~urxbp3, ageDesign)
-
-output = svyglm(log(urxtrs) ~ ridageyr + factor(ridreth3) + factor(dmdeduc2) + factor(dmdmartl) + factor(indfmin2) + urxucr_x,
-          family = gaussian(),
-          data   = model_data,
-          design = ageDesign) 
-
-summary(output)
-fit.svyglm(output)
 
 ```
 
