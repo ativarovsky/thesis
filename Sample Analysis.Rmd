@@ -32,7 +32,7 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 ## Sample Analysis 
 
-```{r weighting variable}
+```{r weighting variable, include = FALSE}
 
 load("final_data.Rdata")
 
@@ -45,19 +45,16 @@ We will plot phenols by income. We will use the sample weighting to create more 
 
 plot_data = 
   final_data %>% 
-    rename("Age" = "ridageyr", "Ethnicity" = "ridreth3", "Education" = "dmdeduc2", "MaritalStatus" = "dmdmartl", "FamilyIncome" = "indfmin2") %>% 
-    mutate(FamilyIncome = case_when(FamilyIncome %in% c("1", "2", "3", "4", "13") ~ "< $20,000", 
-                                  FamilyIncome %in% c("5", "6", "7") ~ "$20,000 - $45,000",
-                                  FamilyIncome %in% c("8", "9", "10") ~ "$45,000 - $75,000",
-                                  FamilyIncome == 14 ~ "$75,000 to $100,000",
-                                  FamilyIncome == 15 ~ "$100,000 and Over")) %>% 
+    rename("Age" = "ridageyr", "Ethnicity" = "ridreth3", "Education" = "dmdeduc2", "MaritalStatus" = "dmdmartl", "FamilyIncome" = "indfmin2") %>%     
   mutate(
     Ethnicity = recode(Ethnicity, "1" = "Mexican American", "2" = "Other Hispanic", "3" = "Non-Hispanic White", "4" = "Non-Hispanic Black", "6" = "Non-Hispanic Asian", "7" = "Other Race - Including Multi-Racial", .default = NULL, .missing = NULL), 
     Education = recode(Education, "1" = "Less than High School", "2" = "Less than High School", "3" = "High school graduate/GED or equivalent", "4" = "Some college or AA degree", "5" = "College graduate or above", "7" = "Refused", "9" = "Don't Know", .default = NULL, .missing = NULL), 
-    MaritalStatus = recode(MaritalStatus, "1" = "Married", "2" = "Widowed", "3" = "Divorced", "4" = "Separated", "5" = "Never married", "6" = "Living with partner", .default = NULL, .missing = NULL))
+    FamilyIncome = recode(FamilyIncome, "1" = "0-5k", "2" = "5-10k", "3" = "10-15k", "4" = "15-20k", "5" = "20-25k", "6" = "25-35k", "7" = "35-45k", "8" = "45-55k", "9" = "55-65k", "10" = "65-75k", "14" = "75-100k", "15" = ">100k", .default = NULL, .missing = NULL),
+    MaritalStatus = recode(MaritalStatus, "1" = "Married", "2" = "Widowed", "3" = "Divorced", "4" = "Separated", "5" = "Never married", "6" = "Living with partner", .default = NULL, .missing = NULL)) 
+  
 
 phen_1 = plot_data %>% 
-  filter(!FamilyIncome %in% c(12, 13, 77, 99, NA)) %>% 
+  filter(!FamilyIncome %in% c(12, 13, 77, 99, NULL)) %>% 
   ggplot(aes(x = FamilyIncome, y = log(urxbp3))) + 
   geom_boxplot()
   
@@ -82,5 +79,38 @@ phen_5 = plot_data %>%
   geom_boxplot()
 
 grid.arrange(phen_1, phen_2, phen_3, phen_4, phen_5)
+
+
 ```
 
+
+## Average values 
+```{r}
+
+mean_data = 
+  plot_data %>% 
+  select(starts_with("ur")) %>% 
+  summarise_all(funs(mean), na.rm = TRUE) %>% 
+  pivot_longer(everything())
+
+sd_data = 
+  plot_data %>% 
+  select(starts_with("ur")) %>% 
+  summarise_all(funs(sd), na.rm = TRUE) %>% 
+  pivot_longer(everything())
+
+sum_data = left_join(x = mean_data, y = sd_data, by = "name") %>% 
+  rename("mean" = "value.x", "sd" = "value.y") %>% 
+  mutate("stderr" = sd/sqrt(893)) %>% 
+  mutate(name = recode(name, "urxbp3" = "Benzophenone3", "urxbph" = "BisphenolA", "urxbpf" = "BisphenolF", "urxbps" = "BisphenolS", "urxtrs" = "Triclosan",      "urxucr_x" = "Creatinine", "urxcnp" = "Mono(carboxynonyl) Phthalate", "urxcop" = "Mono(carboxyoctyl) Phthalate", "urxecp" = "Mono-2-ethyl-5-carboxypentyl phthalate", "urxmbp" = "Mono-n-butyl phthalate", "urxmc1" = "Mono-(3-carboxypropyl) phthalate", "urxmep" = "Mono-ethyl phthalate", "urxmhh" = "Mono-(2-ethyl-5-hydroxyhexyl) phthalate", "urxmhp" = "Mono-(2-ethyl)-hexyl phthalate", "urxmib" = "Mono-isobutyl phthalate", "urxmnp" = "Mono-isononyl phthalate", "urxmoh" = "Mono-(2-ethyl-5-oxohexyl) phthalate", "urxmzp" = "Mono-benzyl phthalate"))
+
+sum_data %>% 
+  knitr::kable(digits = 3)
+```
+
+# Income category code (took out from chunk above)
+mutate(FamilyIncome = case_when(FamilyIncome %in% c("1", "2", "3", "4", "13") ~ "< $20,000", 
+                                  FamilyIncome %in% c("5", "6", "7") ~ "$20,000 - $45,000",
+                                  FamilyIncome %in% c("8", "9", "10") ~ "$45,000 - $75,000",
+                                  FamilyIncome == 14 ~ "$75,000 to $100,000",
+                                  FamilyIncome == 15 ~ "$100,000 and Over")) %>% 
